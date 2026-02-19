@@ -1,13 +1,20 @@
+#ifndef LINUX_SETUP_H
+#define LINUX_SETUP_H
+
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <memory.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <termios.h>
 #include <linux/serial.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 
 #define SERIAL_DEVICE "/dev/ttyUSB0"  // Replace with your serial device
+
+#include "topband.h"
 
 void configure_serial_port(int fd, speed_t baudrate) {
     struct termios tio;
@@ -48,7 +55,8 @@ void configure_serial_port(int fd, speed_t baudrate) {
     }
 }
 
-struct tb_command* query_bms(int fd, struct tb_command* cmd, size_t* num_responses)
+struct tb_command* query_bms_with_buffer(int fd, const char* query_buffer,
+        size_t query_buffer_size, size_t* num_responses)
 {
     fd_set read_fds, write_fds, except_fds;
     FD_ZERO(&read_fds);
@@ -56,20 +64,17 @@ struct tb_command* query_bms(int fd, struct tb_command* cmd, size_t* num_respons
     FD_ZERO(&except_fds);
     FD_SET(fd, &read_fds);
 
-    char query_cmd[256] = {0};
 
 
     struct tb_command* responses = NULL;
     *num_responses = 0;
     
-    size_t size = 256;
-    tb_write_command(cmd, query_cmd, &size);
-    int bytes_sent = write(fd, query_cmd, strlen(query_cmd));
-    if (bytes_sent != strlen(query_cmd)) {
+    int bytes_sent = write(fd, query_buffer, query_buffer_size);
+    if (bytes_sent != query_buffer_size) {
         perror("Failed to send query_cmd");
     }
     //else {
-    //    printf("Sent %d bytes: %s\n", bytes_sent, query_cmd);
+    //    printf("Sent %d bytes: %s\n", bytes_sent, query_buffer);
     //}
 
 
@@ -119,26 +124,41 @@ struct tb_command* query_bms(int fd, struct tb_command* cmd, size_t* num_respons
         int res = tb_decode(next, max_buf_size-(next-buffer), &responses[*num_responses-1], &next);
         if (res < 0)
         {
+            if(res == -7)
+            {
+                // This is proprietary encoding
+                break;
+            }
             printf("Decode error: %d\n",res);
             break;
         }
-        //printf("response:\n");
-        //printf("  VER:        %02X\n", responses[*num_responses-1].version);
-        //printf("  ADR:        %02X\n", responses[*num_responses-1].adr);
-        //printf("  CID1:       %02X\n", responses[*num_responses-1].cid1);
-        //printf("  CID2 (RTN): %02X\n", responses[*num_responses-1].cid2);
-        //uint16_t lenid = responses[*num_responses-1].length & 0xFFF;
-        //printf("  LENID:      %d\n", responses[*num_responses-1].length & 0xFFF);
-        //printf("  INFO:       ");
-        //for(size_t j = 0; j < lenid/2; j++)
-        //{
-        //    printf("%02X", responses[*num_responses-1].info[j]);
-        //}
-        //printf("\n");
-        //printf("  CHKSUM:     %04X\n", responses[*num_responses-1].chksum);
+        printf("response:\n");
+        printf("  VER:        %02X\n", responses[*num_responses-1].version);
+        printf("  ADR:        %02X\n", responses[*num_responses-1].adr);
+        printf("  CID1:       %02X\n", responses[*num_responses-1].cid1);
+        printf("  CID2 (RTN): %02X\n", responses[*num_responses-1].cid2);
+        uint16_t lenid = responses[*num_responses-1].length & 0xFFF;
+        printf("  LENID:      %d\n", responses[*num_responses-1].length & 0xFFF);
+        printf("  INFO:       ");
+        for(size_t j = 0; j < lenid/2; j++)
+        {
+            printf("%02X", responses[*num_responses-1].info[j]);
+        }
+        printf("\n");
+        printf("  CHKSUM:     %04X\n", responses[*num_responses-1].chksum);
     }
 
     return responses;
+
+}
+
+struct tb_command* query_bms(int fd, struct tb_command* cmd, size_t* num_responses)
+{
+    char query_cmd[256] = {0};
+    size_t size = 256;
+    tb_write_command(cmd, query_cmd, &size);
+
+    return query_bms_with_buffer(fd, query_cmd, strlen(query_cmd), num_responses);
 }
 
 
@@ -146,7 +166,6 @@ int kbhit(void) {
     struct termios oldt, newt;
     int oldf;
     int ch;
-    int res;
 
     // Get the terminal settings
     tcgetattr(STDIN_FILENO, &oldt);
@@ -171,3 +190,4 @@ int kbhit(void) {
     return 0; // No key was pressed
 }
 
+#endif // LINUX_SETUP_H

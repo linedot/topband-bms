@@ -26,6 +26,7 @@ int main() {
     configure_serial_port(fd, B9600);  // Set baud rate to 9600
 
     int getout = 0;
+    int bms_count = 0;
     int bms_ids[16] = {0};
     while(!getout)
     {
@@ -33,7 +34,7 @@ int main() {
          *          CHECK BMS ONLINE          *
          **************************************/
         printf("Scanning BMS\n");
-        int bms_count = 0;
+        bms_count = 0;
         for (uint16_t bms_id = 0; bms_id < 16; bms_id++)
         {
             size_t num_responses = 0;
@@ -67,29 +68,6 @@ int main() {
                 {
                     printf("Manufacturer info (BMS ID %d):\n", bms_ids[i]);
                     tb_print_manufacturer_info(&minfo);
-                }
-            }
-            if (NULL != responses)
-                free(responses);
-        }
-
-        /**************************************
-         *              QUERY S/N             *
-         **************************************/
-        printf("Querying S/N\n");
-        for (uint16_t i = 0; i < bms_count; i++)
-        {
-            size_t num_responses = 0;
-            struct tb_command sn_cmd = tb_cmd_get_sn(bms_ids[i]);
-            struct tb_command* responses = query_bms(fd, &sn_cmd, &num_responses);
-
-            for (size_t j = 0; j < num_responses; j++)
-            {
-                struct tb_sn sn;
-                if (0 == tb_interpret_sn(&responses[j], &sn))
-                {
-                    printf("S/N (BMS ID %d):\n", bms_ids[i]);
-                    tb_print_sn(&sn);
                 }
             }
             if (NULL != responses)
@@ -143,8 +121,9 @@ int main() {
         }
 
         /**************************************
-         *      QUERY ALARM INFO       *
+         *          QUERY ALARM INFO          *
          **************************************/
+        printf("Querying ALARM info\n");
         for (uint16_t i = 0; i < bms_count; i++)
         {
             size_t num_responses = 0;
@@ -164,28 +143,6 @@ int main() {
                 free(responses);
         }
 
-        /**************************************
-         *      QUERY CHA/DIS MAN. INFO       *
-         **************************************/
-        printf("Querying charge/discharge management info\n");
-        for (uint16_t i = 0; i < bms_count; i++)
-        {
-            size_t num_responses = 0;
-            struct tb_command cdmi_cmd = tb_cmd_get_charge_discharge_management_info(bms_ids[i]);
-            struct tb_command* responses = query_bms(fd, &cdmi_cmd, &num_responses);
-
-            for (size_t j = 0; j < num_responses; j++)
-            {
-                struct tb_charge_discharge_management_info cdmi;
-                if (0 == tb_interpret_charge_discharge_management_info(&responses[j], &cdmi))
-                {
-                    printf("Charge/Discharge management info (BMS ID %d):\n", bms_ids[i]);
-                    tb_print_charge_discharge_management_info(&cdmi);
-                }
-            }
-            if (NULL != responses)
-                free(responses);
-        }
 
         if(kbhit())
         {
@@ -193,7 +150,23 @@ int main() {
             getout = 'q' == c;
         }
     }
-    
+    /**************************************
+     *            SHUTDOWN BMS            *
+     **************************************/
+    printf("Shutting down BMS\n");
+    for (uint16_t i = 0; i < bms_count; i++)
+    {
+        printf("Shutting down BMS %d\n", bms_ids[i]);
+        size_t num_responses = 0;
+        uint8_t shutdown_cmd[8];
+        memset(shutdown_cmd, 0, 8);
+        tb_special_cmd_sleep(bms_ids[i], shutdown_cmd, 8);
+        struct tb_command* responses = query_bms_with_buffer(fd, (const char*)shutdown_cmd, 8, &num_responses);
+
+        if (NULL != responses)
+            free(responses);
+    }
+
     
     printf("Done, closing serial connection\n");
     close(fd);

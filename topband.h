@@ -1,7 +1,7 @@
 #ifndef TOPBAND_H
 #define TOPBAND_H
 
-// Protocol based on Pylontech RS485 v3.3 low-voltage protocol
+// Protocol very similar to Pylontech RS485 low-voltage protocol with a few differences and some unsupported commands
 
 #include <stdio.h>
 #include <stdint.h>
@@ -18,6 +18,8 @@
 #define TB_SOI '~'
 #define TB_EOI '\r'
 
+#define SPECIAL_SOI (const char)(0xEF)
+
 
 // CID1
 #define TB_CID1_BAT_DATA 0x46
@@ -30,11 +32,11 @@
 #define TB_CID2_GET_SYSPARAM_FP 0x47
 #define TB_CID2_GET_PROTO_VER   0x4F
 #define TB_CID2_GET_MANUF_INFO  0x51
-#define TB_CID2_GET_CHAMAN_INFO 0x92
-#define TB_CID2_GET_SN          0x93
-#define TB_CID2_SET_CHAMAN_INFO 0x94
-#define TB_CID2_SHUTDOWN        0x95
-#define TB_CID2_GET_FW_INFO     0x96
+//#define TB_CID2_GET_CHAMAN_INFO 0x92 // Not supported
+//#define TB_CID2_GET_SN          0x93 // Not supported
+//#define TB_CID2_SET_CHAMAN_INFO 0x94 // Not supported
+//#define TB_CID2_SHUTDOWN        0x95 // Not supported
+//#define TB_CID2_GET_FW_INFO     0x96 // Not supported
 
 // responses
 #define TB_CID2_R_OK          0x00
@@ -135,8 +137,6 @@ int tb_check_lchksum(struct tb_command* cmd)
     {
         return 0;
     }
-    printf("LENID: %d\n",lenid);
-    printf("LCHKSUM error; expected: %04X; actual: %04X\n", expected, lchksum);
 
     return -1;
 }
@@ -205,21 +205,6 @@ struct tb_command tb_cmd_get_system_parameter(int bms_id)
     return cmd;
 }
 
-struct tb_command tb_cmd_get_charge_discharge_management_info(int bms_id)
-{
-    struct tb_command cmd;
-    tb_set_cmd_common(&cmd);
-    cmd.adr = (uint8_t)bms_id;
-    cmd.cid1 = TB_CID1_BAT_DATA;
-    cmd.cid2 = TB_CID2_GET_CHAMAN_INFO;
-    cmd.length  = 2;
-    cmd.info[0] = (uint8_t)bms_id;
-
-    tb_write_lchksum(&cmd);
-
-    return cmd;
-}
-
 struct tb_command tb_cmd_get_alarm_info(int bms_id)
 {
     struct tb_command cmd;
@@ -235,20 +220,24 @@ struct tb_command tb_cmd_get_alarm_info(int bms_id)
     return cmd;
 }
 
-struct tb_command tb_cmd_get_sn(int bms_id)
+int tb_special_cmd_sleep(int bms_id, uint8_t* out, size_t size)
 {
-    struct tb_command cmd;
-    tb_set_cmd_common(&cmd);
-    cmd.adr = (uint8_t)bms_id;
-    cmd.cid1 = TB_CID1_BAT_DATA;
-    cmd.cid2 = TB_CID2_GET_SN;
-    cmd.length  = 2;
-    cmd.info[0] = (uint8_t)bms_id;
+    if(size < 7)
+    {
+        return -1;
+    }
 
-    tb_write_lchksum(&cmd);
+    out[0] = 0xEF;
+    out[1] = bms_id & 0xFF;
+    out[2] = 0xA1;
+    out[3] = 0x01;
+    out[4] = 0xF0;
+    out[5] = 0xFE;
+    out[6] = 0x6E - (bms_id & 0xFF);
+    out[7] = 0x16;
 
-    return cmd;
-};
+    return 0;
+}
 
 
 int _tb_get_nibble(const char hex) {
@@ -276,12 +265,17 @@ int tb_decode(const char* data, size_t size, struct tb_command* cmd, const char*
     size_t soi_pos = 0;
     for (; soi_pos < size; soi_pos++)
     {
-        if (data[soi_pos] == TB_SOI)
+        if ((data[soi_pos] == TB_SOI) || (data[soi_pos] == SPECIAL_SOI))
             break;
     }
     if (soi_pos+TB_MIN_MSG_SIZE > size)
     {
         return -2;
+    }
+    if(data[soi_pos] == SPECIAL_SOI)
+    {
+        // Don't know how to decode proprietary commands/responses
+        return -7;
     }
     cmd->soi     = data[soi_pos];
     cmd->version = _tb_get_byte(data+soi_pos+1);
@@ -319,8 +313,7 @@ int tb_decode(const char* data, size_t size, struct tb_command* cmd, const char*
 
     if (cmd->chksum != expected)
     {
-        printf("CHKSUM error: expected: %04X; actual: %04X\n",expected, cmd->chksum);
-        //return -5;
+        return -5;
     }
 
     cmd->eoi = data[soi_pos+13+lenid+4];
@@ -362,8 +355,7 @@ int tb_interpret_manufacturer_info(struct tb_command* response, struct tb_manufa
     // Bad return code
     if (response->cid2 != 0)
     {
-        printf("BAD RTN: %d\n", response->cid2);
-        return -3;
+        return -response->cid2;
     }
 
     if ((response->length & 0xFFF) != 0x40)
@@ -412,8 +404,7 @@ int tb_interpret_analog_values_fixed_point(struct tb_command* response, struct t
     // Bad return code
     if (response->cid2 != 0)
     {
-        printf("BAD RTN: %d\n", response->cid2);
-        return -3;
+        return -response->cid2;
     }
 
     // at least 1 cell and temp + the rest
@@ -479,14 +470,12 @@ int tb_interpret_system_parameter(struct tb_command* response, struct tb_system_
     // Bad return code
     if (response->cid2 != 0)
     {
-        printf("BAD RTN: %d\n", response->cid2);
-        return -3;
+        return -response->cid2;
     }
 
     // at least 1 cell and temp + the rest
     if ((response->length & 0xFFF) < 48)
     {
-        printf("BAD LEN: %d\n", (response->length & 0xFFF));
         return -2;
     }
 
@@ -506,57 +495,6 @@ int tb_interpret_system_parameter(struct tb_command* response, struct tb_system_
     sp->discharge_high_t      = (response->info[18] << 8) | (response->info[19]);
     sp->discharge_low_t       = (response->info[20] << 8) | (response->info[21]);
     sp->discharge_current_max = (response->info[22] << 8) | (response->info[23]);
-    return 0;
-}
-
-enum tb_charge_discharge_status
-{
-    TB_CHADIS_STATUS_FULL_CHARGE_REQUEST = 1 << 3,
-    TB_CHADIS_STATUS_CHARGE_IMMEDIATELY2 = 1 << 4,
-    TB_CHADIS_STATUS_CHARGE_IMMEDIATELY1 = 1 << 5,
-    TB_CHADIS_STATUS_DISCHARGE_ENABLE    = 1 << 6,
-    TB_CHADIS_STATUS_CHARGE_ENABLE       = 1 << 7
-};
-
-struct tb_charge_discharge_management_info
-{
-    uint8_t cmd;
-    uint16_t charge_max_v;
-    uint16_t discharge_max_v;
-    uint16_t charge_max_a;
-    uint16_t discharge_max_a;
-    uint8_t charge_discharge_status;
-};
-
-int tb_interpret_charge_discharge_management_info(struct tb_command* response, struct tb_charge_discharge_management_info* cdmi)
-{
-    if (!tb_is_valid_command(response))
-        return -1;
-
-
-    // Bad return code
-    if (response->cid2 != 0)
-    {
-        printf("BAD RTN: %d\n", response->cid2);
-        return -3;
-    }
-
-    // at least 1 cell and temp + the rest
-    if ((response->length & 0xFFF) < 20)
-    {
-        printf("BAD LEN: %d\n", (response->length & 0xFFF));
-        return -2;
-    }
-
-    memset(cdmi, 0, sizeof(struct tb_charge_discharge_management_info));
-
-    // There doesn't seem to be a flags byte
-    cdmi->cmd                     = response->info[0];
-    cdmi->charge_max_v            = (response->info[1]  << 8) | (response->info[2]);
-    cdmi->discharge_max_v         = (response->info[3]  << 8) | (response->info[4]);
-    cdmi->charge_max_a            = (response->info[5]  << 8) | (response->info[6]);
-    cdmi->discharge_max_a         = (response->info[7]  << 8) | (response->info[8]);
-    cdmi->charge_discharge_status = response->info[9];
     return 0;
 }
 
@@ -624,28 +562,24 @@ int tb_interpret_alarm_info(struct tb_command* response, struct tb_alarm_info* a
     // Bad return code
     if (response->cid2 != 0)
     {
-        printf("BAD RTN: %d\n", response->cid2);
-        return -3;
+        return -response->cid2;
     }
 
     // at least 1 cell and temp + the rest
     if ((response->length & 0xFFF) < 42)
         return -2;
 
-    printf("LEN: %d\n", response->length & 0xFFF);
 
     memset(ainfo, 0, sizeof(struct tb_alarm_info));
 
     uint16_t offset = 1;
     ainfo->cell_count = response->info[offset];
-    printf("cell count: %d\n", ainfo->cell_count);
     for (uint16_t i = 0; i < ainfo->cell_count; i++)
     {
         ainfo->cell_voltage_status[i] = response->info[offset+1+i];
     }
     offset += 1+ainfo->cell_count;
     ainfo->temp_count = response->info[offset];
-    printf("temp count: %d\n", ainfo->temp_count);
     ainfo->bms_temp_status = response->info[offset+1];
     offset += 2;
     for (uint16_t i = 0; i < ainfo->temp_count-1; i++)
@@ -664,38 +598,5 @@ int tb_interpret_alarm_info(struct tb_command* response, struct tb_alarm_info* a
     return 0;
 }
 
-
-struct tb_sn
-{
-    uint8_t cmd;
-    char    sn[17];
-};
-
-int tb_interpret_sn(struct tb_command* response, struct tb_sn* sn)
-{
-    if (!tb_is_valid_command(response))
-        return -1;
-
-
-    // Bad return code
-    if (response->cid2 != 0)
-    {
-        printf("BAD RTN: %d\n", response->cid2);
-        return -3;
-    }
-
-    if ((response->length & 0xFFF) != 34)
-    {
-        printf("BAD LENGTH: %d\n", response->length & 0xFFF);
-        return -2;
-    }
-
-
-    memset(sn, 0, sizeof(struct tb_sn));
-    sn->cmd = response->info[0];
-    memcpy(sn->sn, response->info+1, 16);
-
-    return 0;
-}
 
 #endif // TOPBAND_H
