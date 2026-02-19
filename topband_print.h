@@ -6,9 +6,9 @@
 
 void tb_print_manufacturer_info(struct tb_manufacturer_info* minfo)
 {
-    printf("  Battery name:      %s\n",minfo->battery_name);
-    printf("  SW version:        %d.%d\n", minfo->sw_version >> 8, minfo->sw_version & 0xFF);
-    printf("  Manufacturer name: %s\n",minfo->manufacturer_name);
+    printf("  HW: %s\n",minfo->hw);
+    printf("  SW: ZM%02d\n", minfo->sw);
+    printf("  ID: %s\n",minfo->id);
 }
 
 void tb_print_analog_values_fixed_point(struct tb_analog_values_fixed_point* avfp)

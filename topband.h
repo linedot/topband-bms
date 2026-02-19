@@ -340,9 +340,9 @@ int tb_is_valid_command(struct tb_command* cmd)
 
 struct tb_manufacturer_info
 {
-    char     battery_name[11];
-    uint16_t sw_version;
-    char     manufacturer_name[21];
+    char     hw[15];
+    uint16_t sw;
+    char     id[21];
 };
 
 
@@ -363,9 +363,30 @@ int tb_interpret_manufacturer_info(struct tb_command* response, struct tb_manufa
 
 
     memset(manufacturer_info, 0, sizeof(struct tb_manufacturer_info));
-    memcpy(manufacturer_info->battery_name, response->info, 10);
-    memcpy(&manufacturer_info->sw_version, response->info+10, 2);
-    memcpy(manufacturer_info->manufacturer_name, response->info+12, 20);
+
+    // I don't really know what I'm doing here, but this
+    // results in almost the same string as in the proprietary
+    // software
+    for (int i = 0; i < 7; i++)
+    {
+        snprintf(manufacturer_info->hw+i*2, 3, "%02X", response->info[i]);
+    }
+    manufacturer_info->hw[0] = 'S';
+    manufacturer_info->hw[1] = 'T';
+    manufacturer_info->hw[2] = 'M';
+    manufacturer_info->hw[7] = '_';
+    manufacturer_info->hw[8] = 'T';
+
+    manufacturer_info->sw = response->info[11];
+    for (int i = 0; i < 10; i++)
+    {
+        uint8_t byte = response->info[i+12];
+        if (byte == 0xEF)
+        {
+            break;
+        }
+        snprintf(manufacturer_info->id+i*2, 3, "%02X", byte);
+    }
 
     return 0;
 }

@@ -12,9 +12,33 @@
 #include <sys/ioctl.h>
 #include <sys/select.h>
 
-#define SERIAL_DEVICE "/dev/ttyUSB0"  // Replace with your serial device
-
 #include "topband.h"
+
+
+#define serial int
+
+#define BAUD(X) B ## X
+
+serial open_serial(const char* port)
+{
+    serial fd;
+
+    fd = open(port, O_RDWR | O_NOCTTY | O_NDELAY);
+
+    if (fd == -1) {
+        perror("Failed to open serial port");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Opened serial device: %s\n", port);
+
+    return fd;
+}
+
+serial close_serial(serial fd)
+{
+    close(fd);
+}
 
 void configure_serial_port(int fd, speed_t baudrate) {
     struct termios tio;
@@ -132,20 +156,20 @@ struct tb_command* query_bms_with_buffer(int fd, const char* query_buffer,
             printf("Decode error: %d\n",res);
             break;
         }
-        printf("response:\n");
-        printf("  VER:        %02X\n", responses[*num_responses-1].version);
-        printf("  ADR:        %02X\n", responses[*num_responses-1].adr);
-        printf("  CID1:       %02X\n", responses[*num_responses-1].cid1);
-        printf("  CID2 (RTN): %02X\n", responses[*num_responses-1].cid2);
-        uint16_t lenid = responses[*num_responses-1].length & 0xFFF;
-        printf("  LENID:      %d\n", responses[*num_responses-1].length & 0xFFF);
-        printf("  INFO:       ");
-        for(size_t j = 0; j < lenid/2; j++)
-        {
-            printf("%02X", responses[*num_responses-1].info[j]);
-        }
-        printf("\n");
-        printf("  CHKSUM:     %04X\n", responses[*num_responses-1].chksum);
+        //printf("response:\n");
+        //printf("  VER:        %02X\n", responses[*num_responses-1].version);
+        //printf("  ADR:        %02X\n", responses[*num_responses-1].adr);
+        //printf("  CID1:       %02X\n", responses[*num_responses-1].cid1);
+        //printf("  CID2 (RTN): %02X\n", responses[*num_responses-1].cid2);
+        //uint16_t lenid = responses[*num_responses-1].length & 0xFFF;
+        //printf("  LENID:      %d\n", responses[*num_responses-1].length & 0xFFF);
+        //printf("  INFO:       ");
+        //for(size_t j = 0; j < lenid/2; j++)
+        //{
+        //    printf("%02X", responses[*num_responses-1].info[j]);
+        //}
+        //printf("\n");
+        //printf("  CHKSUM:     %04X\n", responses[*num_responses-1].chksum);
     }
 
     return responses;
@@ -159,35 +183,6 @@ struct tb_command* query_bms(int fd, struct tb_command* cmd, size_t* num_respons
     tb_write_command(cmd, query_cmd, &size);
 
     return query_bms_with_buffer(fd, query_cmd, strlen(query_cmd), num_responses);
-}
-
-
-int kbhit(void) {
-    struct termios oldt, newt;
-    int oldf;
-    int ch;
-
-    // Get the terminal settings
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO); // Disable canonical mode and echo
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt); // Apply new settings
-    oldf = fcntl(STDIN_FILENO, F_GETFL, 0); // Get current flags
-    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK); // Set non-blocking mode
-
-    // Check if a character is available to read
-    ch = getchar();
-    
-    // Restore original settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    fcntl(STDIN_FILENO, F_SETFL, oldf); // Restore old flags
-
-    if(ch != EOF) {
-        ungetc(ch, stdin); // Put the character back if read
-        return 1; // A key was pressed
-    }
-
-    return 0; // No key was pressed
 }
 
 #endif // LINUX_SETUP_H
