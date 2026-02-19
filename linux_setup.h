@@ -35,7 +35,7 @@ serial open_serial(const char* port)
     return fd;
 }
 
-serial close_serial(serial fd)
+void close_serial(serial fd)
 {
     close(fd);
 }
