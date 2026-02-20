@@ -1,7 +1,8 @@
 #ifndef TOPBAND_H
 #define TOPBAND_H
 
-// Protocol very similar to Pylontech RS485 low-voltage protocol with a few differences and some unsupported commands
+// The batteries accept Pylontech RS485 low-voltage protocol with a few differences and some unsupported commands
+// They also use a separate, proprietary protocol that seems to start with 0xEF and end with 0x16
 
 #include <stdio.h>
 #include <stdint.h>
@@ -18,7 +19,8 @@
 #define TB_SOI '~'
 #define TB_EOI '\r'
 
-#define SPECIAL_SOI (const char)(0xEF)
+#define TB_SPECIAL_SOI (const char)(0xEF)
+#define TB_SPECIAL_EOI (const char)(0x16)
 
 
 // CID1
@@ -233,6 +235,8 @@ int tb_special_cmd_sleep(int bms_id, uint8_t* out, size_t size)
     out[3] = 0x01;
     out[4] = 0xF0;
     out[5] = 0xFE;
+    // Byte 6 is probably the checksum. Not sure how it's calculated, but
+    // the following seems to hold for this one command at least
     out[6] = 0x6E - (bms_id & 0xFF);
     out[7] = 0x16;
 
@@ -265,14 +269,14 @@ int tb_decode(const char* data, size_t size, struct tb_command* cmd, const char*
     size_t soi_pos = 0;
     for (; soi_pos < size; soi_pos++)
     {
-        if ((data[soi_pos] == TB_SOI) || (data[soi_pos] == SPECIAL_SOI))
+        if ((data[soi_pos] == TB_SOI) || (data[soi_pos] == TB_SPECIAL_SOI))
             break;
     }
     if (soi_pos+TB_MIN_MSG_SIZE > size)
     {
         return -2;
     }
-    if(data[soi_pos] == SPECIAL_SOI)
+    if(data[soi_pos] == TB_SPECIAL_SOI)
     {
         // Don't know how to decode proprietary commands/responses
         return -7;
