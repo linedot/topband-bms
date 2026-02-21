@@ -92,6 +92,28 @@ int main(int argc, char* argv[]) {
     }
 
     /**************************************
+     *             QUERY DATE             *
+     **************************************/
+    printf("Querying date\n");
+    for (uint16_t i = 0; i < bms_count; i++)
+    {
+        size_t num_responses = 0;
+        struct tb_command date_cmd = tb_cmd_get_date(bms_ids[i]);
+        struct tb_command* responses = query_bms(fd, &date_cmd, &num_responses);
+        for (size_t j = 0; j < num_responses; j++)
+        {
+            struct tb_date date;
+            if (0 == tb_interpret_date(&responses[j], &date))
+            {
+                printf("BMS date (BMS ID %d):\n", bms_ids[i]);
+                tb_print_date(&date);
+            }
+        }
+        if (NULL != responses)
+            free(responses);
+    }
+
+    /**************************************
      *          QUERY BAT. VALUES         *
      **************************************/
     printf("Querying battery values\n");

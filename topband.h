@@ -1,7 +1,8 @@
 #ifndef TOPBAND_H
 #define TOPBAND_H
 
-// The batteries accept Pylontech RS485 low-voltage protocol with a few differences and some unsupported commands
+// The batteries use a protocol similar to Pylontech RS485 low-voltage protocol
+// (there are however some differences and some unsupported commands)
 // They also use a separate, proprietary protocol that seems to start with 0xEF and end with 0x16
 
 #include <stdio.h>
@@ -32,6 +33,8 @@
 #define TB_CID2_GET_AVAL_FP     0x42
 #define TB_CID2_GET_ALRM_INFO   0x44
 #define TB_CID2_GET_SYSPARAM_FP 0x47
+#define TB_CID2_GET_DATE        0x4D
+#define TB_CID2_SET_DATE        0x4E
 #define TB_CID2_GET_PROTO_VER   0x4F
 #define TB_CID2_GET_MANUF_INFO  0x51
 //#define TB_CID2_GET_CHAMAN_INFO 0x92 // Not supported
@@ -193,6 +196,20 @@ struct tb_command tb_cmd_get_manufacturer_info(int bms_id)
     return cmd;
 }
 
+struct tb_command tb_cmd_get_date(int bms_id)
+{
+    struct tb_command cmd;
+    tb_set_cmd_common(&cmd);
+    cmd.adr = (uint8_t)bms_id;
+    cmd.cid1 = TB_CID1_BAT_DATA;
+    cmd.cid2 = TB_CID2_GET_DATE;
+    cmd.length = 0;
+
+    tb_write_lchksum(&cmd);
+
+    return cmd;
+}
+
 struct tb_command tb_cmd_get_system_parameter(int bms_id)
 {
     struct tb_command cmd;
@@ -252,12 +269,17 @@ int _tb_get_nibble(const char hex) {
     } else if (hex >= 'a' && hex <= 'f') {
         return hex - 'a' + 10; // not sure if necessary, I've only seen capital A-F
     }
-
-    return -1; // shouldn't happen
+    return -1; // broken protocol (happens with manufacturer_info)
 }
 int _tb_get_byte(const char* data)
 {
-    return (_tb_get_nibble(data[0])<<4) + _tb_get_nibble(data[1]);
+    int nibble1 = _tb_get_nibble(data[0]);
+    int nibble2 = _tb_get_nibble(data[1]);
+    if ((-1 == nibble1) || (-1 == nibble2))
+    {
+        return -1;
+    }
+    return (nibble1<<4) | nibble2;
 }
 
 int tb_decode(const char* data, size_t size, struct tb_command* cmd, const char** next)
@@ -300,10 +322,24 @@ int tb_decode(const char* data, size_t size, struct tb_command* cmd, const char*
     }
 
 
-    size_t pos = 0;
-    for (; pos < lenid/2; pos++)
+    int break_protocol = 0;
+    for (uint16_t pos = 0; pos < lenid/2; pos++)
     {
-        cmd->info[pos] = _tb_get_byte(data+soi_pos+13+pos*2);
+        int byte = _tb_get_byte(data+soi_pos+13+pos*2);
+        if (byte == -1)
+        {
+            break_protocol = 1;
+            break;
+        }
+        cmd->info[pos] = (uint8_t)byte;
+    }
+    // The batteries break protocol on manufacturer info and transmit it in plain ascii
+    if (break_protocol)
+    {
+        for (uint16_t pos = 0; pos < lenid; pos++)
+        {
+            cmd->info[pos] = data[soi_pos+13+pos];
+        }
     }
     cmd->chksum = (_tb_get_byte(data+soi_pos+13+lenid) << 8) + _tb_get_byte(data+soi_pos+13+lenid+2);
 
@@ -344,9 +380,9 @@ int tb_is_valid_command(struct tb_command* cmd)
 
 struct tb_manufacturer_info
 {
-    char     hw[15];
-    uint16_t sw;
-    char     id[21];
+    char     hw[21];
+    char     sw[5];
+    char     id[41];
 };
 
 
@@ -368,29 +404,33 @@ int tb_interpret_manufacturer_info(struct tb_command* response, struct tb_manufa
 
     memset(manufacturer_info, 0, sizeof(struct tb_manufacturer_info));
 
+    memcpy(manufacturer_info->hw, response->info, 20);
+    memcpy(manufacturer_info->sw, response->info+20, 4);
+    memcpy(manufacturer_info->id, response->info+24, 40);
+
     // I don't really know what I'm doing here, but this
     // results in almost the same string as in the proprietary
     // software
-    for (int i = 0; i < 7; i++)
-    {
-        snprintf(manufacturer_info->hw+i*2, 3, "%02X", response->info[i]);
-    }
-    manufacturer_info->hw[0] = 'S';
-    manufacturer_info->hw[1] = 'T';
-    manufacturer_info->hw[2] = 'M';
-    manufacturer_info->hw[7] = '_';
-    manufacturer_info->hw[8] = 'T';
+    //for (int i = 0; i < 7; i++)
+    //{
+    //    snprintf(manufacturer_info->hw+i*2, 3, "%02X", response->info[i]);
+    //}
+    //manufacturer_info->hw[0] = 'S';
+    //manufacturer_info->hw[1] = 'T';
+    //manufacturer_info->hw[2] = 'M';
+    //manufacturer_info->hw[7] = '_';
+    //manufacturer_info->hw[8] = 'T';
 
-    manufacturer_info->sw = response->info[11];
-    for (int i = 0; i < 10; i++)
-    {
-        uint8_t byte = response->info[i+12];
-        if (byte == 0xEF)
-        {
-            break;
-        }
-        snprintf(manufacturer_info->id+i*2, 3, "%02X", byte);
-    }
+    //manufacturer_info->sw = response->info[11];
+    //for (int i = 0; i < 10; i++)
+    //{
+    //    uint8_t byte = response->info[i+12];
+    //    if (byte == 0xEF)
+    //    {
+    //        break;
+    //    }
+    //    snprintf(manufacturer_info->id+i*2, 3, "%02X", byte);
+    //}
 
     return 0;
 }
@@ -404,13 +444,16 @@ enum tb_infoflags
 
 struct tb_analog_values_fixed_point
 {
-    uint8_t  flags;
-    uint8_t  cmd;
+    //uint8_t  flags;
+    //uint8_t  cmd;
+    uint8_t  id;
     uint8_t  cell_count;
     uint16_t cell_voltages[16];
     uint8_t  temp_count;
-    uint16_t bms_temp;
     uint16_t cell_temps[16];
+    uint16_t balancer_temp;
+    uint16_t environment_temp;
+    uint16_t mosfet_temp;
     int16_t  current;
     uint16_t module_voltage;
     uint16_t remaining_capacity;
@@ -419,6 +462,9 @@ struct tb_analog_values_fixed_point
     uint16_t cycle_count;
     uint32_t remaining_capacity2;
     uint32_t total_capacity2;
+    uint8_t soc;
+    uint8_t soh;
+    uint8_t custom_values[2];
 };
 
 int tb_interpret_analog_values_fixed_point(struct tb_command* response, struct tb_analog_values_fixed_point* avfp)
@@ -439,7 +485,9 @@ int tb_interpret_analog_values_fixed_point(struct tb_command* response, struct t
 
     memset(avfp, 0, sizeof(struct tb_analog_values_fixed_point));
 
-    avfp->flags      = response->info[0];
+    // This seems to be ADR instead of flags
+    avfp->id      = response->info[0];
+    //avfp->flags      = response->info[0];
     //avfp->cmd        = response->info[1]; // This seems to differ from Pylontech
     avfp->cell_count = response->info[1];
     for (uint16_t i = 0; i < avfp->cell_count; i++)
@@ -448,23 +496,28 @@ int tb_interpret_analog_values_fixed_point(struct tb_command* response, struct t
     }
     uint16_t offset = 2+2*avfp->cell_count;
     avfp->temp_count = response->info[offset];
-    avfp->bms_temp = (response->info[offset+1] << 8) | (response->info[offset+2]);
-    offset += 3;
-    for (uint16_t i = 0; i < avfp->temp_count-1; i++)
+    offset += 1;
+    // last 3 temps are balancer, environment, mosfet
+    for (uint16_t i = 0; i < avfp->temp_count-3; i++)
     {
-        avfp->cell_temps[i] = (response->info[offset+i*2] << 8) + (response->info[offset+i*2+1]);
+        avfp->cell_temps[i]  = (response->info[offset+i*2] << 8) + (response->info[offset+i*2+1]);
     }
-    offset += 2*(avfp->temp_count -1);
-    avfp->current = (response->info[offset] << 8) | (response->info[offset+1]);
-    avfp->module_voltage = (response->info[offset+2] << 8) | (response->info[offset+3]);
+    offset += (avfp->temp_count-3)*2;
+    avfp->balancer_temp      = (response->info[offset+0] << 8) | (response->info[offset+1]);
+    avfp->environment_temp   = (response->info[offset+2] << 8) | (response->info[offset+3]);
+    avfp->mosfet_temp        = (response->info[offset+4] << 8) | (response->info[offset+5]);
+    offset += 6;
+    avfp->current            = (response->info[offset] << 8) | (response->info[offset+1]);
+    avfp->module_voltage     = (response->info[offset+2] << 8) | (response->info[offset+3]);
     avfp->remaining_capacity = (response->info[offset+4] << 8) | (response->info[offset+5]);
-    avfp->udi = response->info[offset+6];
-    avfp->total_capacity = (response->info[offset+7] << 8) | (response->info[offset+8]);
-    if(avfp->udi == 4)
-    {
-        avfp->remaining_capacity2 = (response->info[offset+9] << 16) | (response->info[offset+10] << 8) | (response->info[offset+11]);
-        avfp->total_capacity2 = (response->info[offset+12] << 16) | (response->info[offset+13] << 8) | (response->info[offset+14]);
-    }
+    avfp->udi                = response->info[offset+6];
+    avfp->total_capacity     = (response->info[offset+7] << 8) | (response->info[offset+8]);
+    avfp->cycle_count        = (response->info[offset+9] << 8) | (response->info[offset+10]);
+    offset += 11;
+    avfp->soc = response->info[offset];
+    avfp->soh = response->info[offset+1];
+    avfp->custom_values[0] = response->info[offset+2];
+    avfp->custom_values[1] = response->info[offset+3];
     return 0;
 }
 
@@ -571,11 +624,14 @@ struct tb_alarm_info
     uint8_t cell_count;
     uint8_t cell_voltage_status[16];
     uint8_t temp_count;
-    uint8_t bms_temp_status;
     uint8_t cell_temp_status[16];
+    uint8_t balancer_temp_status;
+    uint8_t environment_temp_status;
+    uint8_t mosfet_temp_status;
     uint8_t charge_current_status;
     uint8_t module_voltage_status;
-    uint8_t discharge_current_status;
+    //uint8_t discharge_current_status;
+    uint8_t status_count;
     uint64_t status;
 };
 
@@ -605,21 +661,66 @@ int tb_interpret_alarm_info(struct tb_command* response, struct tb_alarm_info* a
     }
     offset += 1+ainfo->cell_count;
     ainfo->temp_count = response->info[offset];
-    ainfo->bms_temp_status = response->info[offset+1];
-    offset += 2;
-    for (uint16_t i = 0; i < ainfo->temp_count-1; i++)
+    offset += 1;
+    for (uint16_t i = 0; i < ainfo->temp_count-3; i++)
     {
         ainfo->cell_temp_status[i] = response->info[offset+i];
     }
-    offset += (ainfo->temp_count -1);
+    offset += (ainfo->temp_count -3);
+    ainfo->balancer_temp_status = response->info[offset];
+    ainfo->environment_temp_status = response->info[offset+1];
+    ainfo->mosfet_temp_status = response->info[offset+2];
+    offset += 3;
     ainfo->charge_current_status = response->info[offset];
     ainfo->module_voltage_status = response->info[offset+1];
-    ainfo->discharge_current_status = response->info[offset+2];
-    ainfo->status = ((uint64_t)response->info[offset+3]) |
-                    ((uint64_t)response->info[offset+4] << 8) |
-                    ((uint64_t)response->info[offset+5] << 16) |
-                    ((uint64_t)response->info[offset+6] << 24) |
-                    ((uint64_t)response->info[offset+7] << 32);
+    // I think this byte is the number of statuses
+    //ainfo->discharge_current_status = response->info[offset+2];
+    ainfo->status_count = response->info[offset+2];
+    offset += 3;
+    ainfo->status = 0;
+    for (uint16_t i = 0; i < ainfo->status_count; i++)
+    {
+        ainfo->status |= (((uint64_t)response->info[offset+i]) << 8*i);
+    }
+    return 0;
+}
+
+
+struct tb_date
+{
+    uint16_t year;
+    uint8_t  month;
+    uint8_t  day;
+    uint8_t  hour;
+    uint8_t  minute;
+    uint8_t  second;
+};
+
+int tb_interpret_date(struct tb_command* response, struct tb_date* date)
+{
+    if (!tb_is_valid_command(response))
+        return -1;
+
+    // Bad return code
+    if (response->cid2 != 0)
+    {
+        return -response->cid2;
+    }
+
+    // 2 bytes (year) + 5 bytes (month,day,hour,minute,second)
+    if ((response->length & 0xFFF) < 14)
+        return -2;
+
+
+    memset(date, 0, sizeof(struct tb_date));
+
+    date->year   = (response->info[0] << 8) | (response->info[1]);
+    date->month  =  response->info[2];
+    date->day    =  response->info[3];
+    date->hour   =  response->info[4];
+    date->minute =  response->info[5];
+    date->second =  response->info[6];
+
     return 0;
 }
 
