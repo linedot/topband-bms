@@ -107,7 +107,7 @@ struct tb_command* query_bms_with_buffer(int fd, const char* query_buffer,
     char buffer[max_buf_size];
     struct timeval timeout;
     timeout.tv_sec = 0;
-    timeout.tv_usec = 200000;
+    timeout.tv_usec = 500000;
 
     int read_something = 1;
 
@@ -131,6 +131,14 @@ struct tb_command* query_bms_with_buffer(int fd, const char* query_buffer,
 
     if (0 == msg_size)
         return NULL;
+
+    //printf("ASCII reply: %s\n", buffer);
+    //printf("HEX reply:   ");
+    //for(uint32_t i = 0; i < msg_size; i++)
+    //{
+    //    printf("\\x%02X", (unsigned char)buffer[i]);
+    //}
+    //printf("\n");
 
     const char* next = buffer;
     while(next < buffer+msg_size)

@@ -2,7 +2,8 @@
 #define TOPBAND_H
 
 // The batteries use a protocol similar to Pylontech RS485 low-voltage protocol
-// (there are however some differences and some unsupported commands)
+// (or any other similar protocols from SEPLOS, Fiber Ocean, SHOTO, ...)
+// there are however some differences and some unsupported commands
 // They also use a separate, proprietary protocol that seems to start with 0xEF and end with 0x16
 
 #include <stdio.h>
@@ -30,18 +31,19 @@
 // CID2
 
 // commands
-#define TB_CID2_GET_AVAL_FP     0x42
-#define TB_CID2_GET_ALRM_INFO   0x44
-#define TB_CID2_GET_SYSPARAM_FP 0x47
-#define TB_CID2_GET_DATE        0x4D
-#define TB_CID2_SET_DATE        0x4E
-#define TB_CID2_GET_PROTO_VER   0x4F
-#define TB_CID2_GET_MANUF_INFO  0x51
-//#define TB_CID2_GET_CHAMAN_INFO 0x92 // Not supported
-//#define TB_CID2_GET_SN          0x93 // Not supported
-//#define TB_CID2_SET_CHAMAN_INFO 0x94 // Not supported
-//#define TB_CID2_SHUTDOWN        0x95 // Not supported
-//#define TB_CID2_GET_FW_INFO     0x96 // Not supported
+#define TB_CID2_GET_AVAL_FP         0x42
+#define TB_CID2_GET_ALRM_INFO       0x44
+#define TB_CID2_GET_SYSPARAM_FP     0x47
+#define TB_CID2_GET_HISTORICAL_DATA 0x4B
+#define TB_CID2_GET_DATE            0x4D
+#define TB_CID2_SET_DATE            0x4E
+#define TB_CID2_GET_PROTO_VER       0x4F
+#define TB_CID2_GET_MANUF_INFO      0x51
+//#define TB_CID2_GET_CHAMAN_INFO     0x92 // Not supported
+//#define TB_CID2_GET_SN              0x93 // Not supported
+//#define TB_CID2_SET_CHAMAN_INFO     0x94 // Not supported
+//#define TB_CID2_SHUTDOWN            0x95 // Not supported
+//#define TB_CID2_GET_FW_INFO         0x96 // Not supported
 
 // responses
 #define TB_CID2_R_OK          0x00
@@ -239,6 +241,36 @@ struct tb_command tb_cmd_get_alarm_info(int bms_id)
     return cmd;
 }
 
+
+struct tb_command tb_cmd_get_historical_data(int bms_id)
+{
+    struct tb_command cmd;
+    tb_set_cmd_common(&cmd);
+    cmd.adr = (uint8_t)bms_id;
+    cmd.cid1 = TB_CID1_BAT_DATA;
+    cmd.cid2 = TB_CID2_GET_HISTORICAL_DATA;
+    cmd.length  = 4;
+    cmd.info[0] = (uint8_t)bms_id;
+    cmd.info[1] = 0;
+
+
+    tb_write_lchksum(&cmd);
+
+    return cmd;
+}
+
+enum tb_historical_query_mode
+{
+    TB_FIRST  = 0x00,
+    TB_NEXT   = 0x01,
+    TB_RESEND = 0x02
+};
+
+void tb_historical_data_cmd_set_mode(struct tb_command* cmd, enum tb_historical_query_mode mode)
+{
+    cmd->info[1] = mode;
+}
+
 int tb_special_cmd_sleep(int bms_id, uint8_t* out, size_t size)
 {
     if(size < 7)
@@ -404,38 +436,14 @@ int tb_interpret_manufacturer_info(struct tb_command* response, struct tb_manufa
 
     memset(manufacturer_info, 0, sizeof(struct tb_manufacturer_info));
 
-    memcpy(manufacturer_info->hw, response->info, 20);
+    memcpy(manufacturer_info->hw, response->info,    20);
     memcpy(manufacturer_info->sw, response->info+20, 4);
     memcpy(manufacturer_info->id, response->info+24, 40);
-
-    // I don't really know what I'm doing here, but this
-    // results in almost the same string as in the proprietary
-    // software
-    //for (int i = 0; i < 7; i++)
-    //{
-    //    snprintf(manufacturer_info->hw+i*2, 3, "%02X", response->info[i]);
-    //}
-    //manufacturer_info->hw[0] = 'S';
-    //manufacturer_info->hw[1] = 'T';
-    //manufacturer_info->hw[2] = 'M';
-    //manufacturer_info->hw[7] = '_';
-    //manufacturer_info->hw[8] = 'T';
-
-    //manufacturer_info->sw = response->info[11];
-    //for (int i = 0; i < 10; i++)
-    //{
-    //    uint8_t byte = response->info[i+12];
-    //    if (byte == 0xEF)
-    //    {
-    //        break;
-    //    }
-    //    snprintf(manufacturer_info->id+i*2, 3, "%02X", byte);
-    //}
 
     return 0;
 }
 
-
+// I think this isn't actually used anywhere
 enum tb_infoflags
 {
     TB_IFLAG_SW_VALUE_CHANGE = 0x8,
@@ -576,45 +584,80 @@ int tb_interpret_system_parameter(struct tb_command* response, struct tb_system_
     return 0;
 }
 
-enum ALARM_STATUS
+enum TB_ALARM_STATUS
 {
+    // STATUS 0
+    TB_ALRMS_CELL_OVER_VOLTAGE_PROTECT       = 1,
+    TB_ALRMS_CELL_UNDER_VOLTAGE              = 1ULL << 1,
+    TB_ALRMS_CHARGE_OVER_CURRENT             = 1ULL << 2,
+    TB_ALRMS_CELL_OVER_VOLTAGE_ALARM         = 1ULL << 3,
+    TB_ALRMS_DISCHARGE_OVER_CURRENT1_PROTECT = 1ULL << 4,
+    TB_ALRMS_CELL_TEMP_DISCHARGE_PROTECT     = 1ULL << 5,
+    TB_ALRMS_CELL_TEMP_CHARGE_PROTECT        = 1ULL << 6,
+    TB_ALRMS_MODULE_UNDER_VOLTAGE            = 1ULL << 7,
     // STATUS 1
-    TB_ALRMS_MODULE_OVER_VOLTAGE        = 1,
-    TB_ALRMS_CELL_OVER_VOLTAGE          = 1ULL << 1,
-    TB_ALRMS_CHARGE_OVER_CURRENT        = 1ULL << 2,
-    TB_ALRMS_DISCHARGE_OVER_CURRENT     = 1ULL << 4,
-    TB_ALRMS_DISCHARGE_OVER_TEMPERATURE = 1ULL << 5,
-    TB_ALRMS_CHARGE_OVER_TEMPERATURE    = 1ULL << 6,
-    TB_ALRMS_MODULE_UNDER_VOLTAGE       = 1ULL << 7,
+    TB_ALRMS_OPEN_CURRENT_LIMIT              = 1ULL << 8,
+    TB_ALRMS_CHARGE_MOSFET                   = 1ULL << 9,
+    TB_ALRMS_DISCHARGE_MOSFET                = 1ULL << 10,
+    TB_ALRMS_SHORT_CIRCUIT_PROTECT           = 1ULL << 11,
+    TB_ALRMS_CELL_UNDER_VOLTAGE_PROTECT      = 1ULL << 12,
+    TB_ALRMS_PACK_UNDER_VOLTAGE_PROTECT      = 1ULL << 13,
+    TB_ALRMS_REVERSE_PROTECT                 = 1ULL << 14,
+    TB_ALRMS_SOC_LOW_ALARM                   = 1ULL << 15,
     // STATUS 2
-    // bit 8 documentation: Pre MOSFET（reserve, function not using）
-    TB_ALRMS_CHARGE_MOSFET          = 1ULL << 9,
-    TB_ALRMS_DISCHARGE_MOSFET       = 1ULL << 10,
-    TB_ALRMS_USING_BAT_MODULE_POWER = 1ULL << 11,
+    TB_ALRMS_BUZZER_ON                       = 1ULL << 16,
+    TB_ALRMS_CHARGER_FAULT                   = 1ULL << 17,
+    TB_ALRMS_2G_MODULE_FAILURE               = 1ULL << 18,
+    TB_ALRMS_FULL_STATE                      = 1ULL << 19,
+    TB_ALRMS_CHARGER_CONNECTED               = 1ULL << 20,
+    TB_ALRMS_HEATER_ON                       = 1ULL << 21,
+    TB_ALRMS_DISCHARGING                     = 1ULL << 22,
+    TB_ALRMS_CHARGING                        = 1ULL << 23,
     // STATUS 3
-    TB_ALRMS_BUZZER                        = 1ULL << 16,
-    TB_ALRMS_FULLY_CHARGED                 = 1ULL << 19,
-    TB_ALRMS_HEATER                        = 1ULL << 21,
-    TB_ALRMS_DISCHARGE_CURRENT_UNDER_100MA = 1ULL << 22,
-    TB_ALRMS_CHARGE_CURRENT_UNDER_100MA    = 1ULL << 23,
+    TB_ALRMS_UNDEFINED_3_0                   = 1ULL << 24,
+    TB_ALRMS_UNDEFINED_3_1                   = 1ULL << 25,
+    TB_ALRMS_UNDEFINED_3_2                   = 1ULL << 26,
+    TB_ALRMS_UNDEFINED_3_3                   = 1ULL << 27,
+    TB_ALRMS_CELL_VOLTAGE_LOW_FORCE_PROTECT  = 1ULL << 28,
+    TB_ALRMS_DISCONNECTOR_STATE              = 1ULL << 29,
+    TB_ALRMS_AEROSOL_TRIGGERED               = 1ULL << 30,
+    TB_ALRMS_PRECHARGE_ON                    = 1ULL << 31,
     // STATUS 4
-    TB_ALRMS_CELL1_VOLTAGE_ERR  = 1ULL << 24,
-    TB_ALRMS_CELL2_VOLTAGE_ERR  = 1ULL << 25,
-    TB_ALRMS_CELL3_VOLTAGE_ERR  = 1ULL << 26,
-    TB_ALRMS_CELL4_VOLTAGE_ERR  = 1ULL << 27,
-    TB_ALRMS_CELL5_VOLTAGE_ERR  = 1ULL << 28,
-    TB_ALRMS_CELL6_VOLTAGE_ERR  = 1ULL << 29,
-    TB_ALRMS_CELL7_VOLTAGE_ERR  = 1ULL << 30,
-    TB_ALRMS_CELL8_VOLTAGE_ERR  = 1ULL << 31,
+    TB_ALRMS_PACK_OVER_VOLTAGE_ALARM         = 1ULL << 32,
+    TB_ALRMS_MOS_NTC_TEMPERATURE_ALARM       = 1ULL << 33,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_LOW_ALARM = 1ULL << 34,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_HIGH_ALARM = 1ULL << 35,
+    TB_ALRMS_CELL_NTC_TEMPERATURE_LOW_ALARM  = 1ULL << 36,
+    TB_ALRMS_CELL_NTC_TEMPERATURE_HIGH_ALARM = 1ULL << 37,
+    TB_ALRMS_DISCHARGE_CURRENT_ALARM         = 1ULL << 38,
+    TB_ALRMS_CHARGE_CURRENT_ALARM            = 1ULL << 39,
     // STATUS 5
-    TB_ALRMS_CELL9_VOLTAGE_ERR  = 1ULL << 32,
-    TB_ALRMS_CELL10_VOLTAGE_ERR = 1ULL << 33,
-    TB_ALRMS_CELL11_VOLTAGE_ERR = 1ULL << 34,
-    TB_ALRMS_CELL12_VOLTAGE_ERR = 1ULL << 35,
-    TB_ALRMS_CELL13_VOLTAGE_ERR = 1ULL << 36,
-    TB_ALRMS_CELL14_VOLTAGE_ERR = 1ULL << 37,
-    TB_ALRMS_CELL15_VOLTAGE_ERR = 1ULL << 38,
-    TB_ALRMS_CELL16_VOLTAGE_ERR = 1ULL << 39,
+    TB_ALRMS_BALANCE_NTC_TEMPERATURE_ALARM   = 1ULL << 40,
+    TB_ALRMS_BALANCE_NTC_TEMPERATURE_PROTECT = 1ULL << 41,
+    TB_ALRMS_DISCHARGE_MOSFET_FAULT          = 1ULL << 42,
+    TB_ALRMS_CHARGE_MOSFET_FAULT             = 1ULL << 43,
+    TB_ALRMS_CURRENT_SENSOR_FAULT            = 1ULL << 44,
+    TB_ALRMS_AFE_FAULT                       = 1ULL << 45,
+    TB_ALRMS_NTC_FAULT                       = 1ULL << 46,
+    TB_ALRMS_CELL_FAULT                      = 1ULL << 47,
+    // STATUS 6
+    TB_ALRMS_DISCHARGE_OVER_CURRENT2_PROTECT = 1ULL << 48,
+    TB_ALRMS_SMART_CHARGING                  = 1ULL << 49,
+    TB_ALRMS_PACK_OVER_VOLTAGE_PROTECT       = 1ULL << 50,
+    TB_ALRMS_MOS_NTC_TEMPERATURE_PROTECT     = 1ULL << 51,
+    TB_ALRMS_DISCHARGE_MOSFET_FORCED_CLOSE   = 1ULL << 52,
+    TB_ALRMS_CHARGE_MOSFET_FORCED_CLOSE      = 1ULL << 53,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_DISCHARGING = 1ULL << 54,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_CHARGING = 1ULL << 55,
+    // STATUS 7
+    TB_ALRMS_REQUEST_SLEEP_DTU                     = 1ULL << 56,
+    TB_ALRMS_BATTERY_LOW_TEMPERATURE_PROTECT       = 1ULL << 57,
+    TB_ALRMS_BATTERY_HIGH_TEMPERATURE_PROTECT      = 1ULL << 58,
+    TB_ALRMS_LARGE_CELL_VOLTAGE_DIFFERENTIAL_ALARM = 1ULL << 59,
+    TB_ALRMS_MOSFET_HIGH_TEMPERATURE_ALARM         = 1ULL << 60,
+    TB_ALRMS_CELL_ULTRA_HIGH_TEMPERATURE_PROTECT   = 1ULL << 61,
+    TB_ALRMS_DISCHARGE_LIMIT_CURRENT_ON            = 1ULL << 62,
+    TB_ALRMS_SOC_LOW_PROTECTION                    = 1ULL << 63
 };
 
 struct tb_alarm_info
@@ -720,6 +763,57 @@ int tb_interpret_date(struct tb_command* response, struct tb_date* date)
     date->hour   =  response->info[4];
     date->minute =  response->info[5];
     date->second =  response->info[6];
+
+    return 0;
+}
+
+
+struct tb_historical_data
+{
+    uint8_t location;
+    uint8_t cmd_type;
+    struct tb_date date;
+    uint8_t system_mode;
+    uint8_t alarm_byte_count;
+    uint8_t cell_status_event;
+    uint8_t single_voltage_event;
+    uint16_t temp_event;
+    uint8_t current_event;
+};
+
+int tb_interpret_historical_data(struct tb_command* response, struct tb_historical_data* hist)
+{
+    if (!tb_is_valid_command(response))
+        return -1;
+
+    // Bad return code
+    if (response->cid2 != 0)
+    {
+        return -response->cid2;
+    }
+
+    // 2 bytes (year) + 5 bytes (month,day,hour,minute,second)
+    if ((response->length & 0xFFF) < 14)
+        return -2;
+
+
+    memset(hist, 0, sizeof(struct tb_historical_data));
+
+    hist->location = response->info[0];
+    hist->cmd_type = response->info[1];
+    hist->date.year   = (response->info[2] << 8) | (response->info[3]);
+    hist->date.month  =  response->info[4];
+    hist->date.day    =  response->info[5];
+    hist->date.hour   =  response->info[6];
+    hist->date.minute =  response->info[7];
+    hist->date.second =  response->info[8];
+    hist->system_mode = response->info[9];
+    hist->alarm_byte_count = response->info[10];
+    hist->cell_status_event = response->info[11];
+    hist->single_voltage_event = response->info[12];
+    hist->temp_event = (response->info[13] << 8) | (response->info[14]);
+    hist->current_event = response->info[15];
+    // TODO: rest
 
     return 0;
 }

@@ -117,85 +117,261 @@ void tb_print_alarm_info(struct tb_alarm_info* ainfo)
     printf("  Status byte count:        %d\n", ainfo->status_count);
 
     printf("  STATUS:\n");
-    if (ainfo->status & TB_ALRMS_MODULE_OVER_VOLTAGE)
+    if (ainfo->status & TB_ALRMS_CELL_OVER_VOLTAGE_PROTECT)
     {
-        printf("    Module over voltage\n");
+        printf("    Cell over voltage protect\n");
     }
-    if (ainfo->status & TB_ALRMS_CELL_OVER_VOLTAGE)
+    if (ainfo->status & TB_ALRMS_CELL_UNDER_VOLTAGE)
     {
-        printf("    Cell over voltage\n");
+        printf("    Cell under voltage\n");
     }
     if (ainfo->status & TB_ALRMS_CHARGE_OVER_CURRENT)
     {
         printf("    Charge over current\n");
     }
-    if (ainfo->status & TB_ALRMS_DISCHARGE_OVER_CURRENT)
+    if (ainfo->status & TB_ALRMS_CELL_OVER_VOLTAGE_ALARM)
     {
-        printf("    Discharge over current\n");
+        printf("    Cell over voltage alarm\n");
     }
-    if (ainfo->status & TB_ALRMS_DISCHARGE_OVER_TEMPERATURE)
+    if (ainfo->status & TB_ALRMS_DISCHARGE_OVER_CURRENT1_PROTECT)
     {
-        printf("    Discharge over temperature\n");
+        printf("    Discharge over current 1 protect\n");
     }
-    if (ainfo->status & TB_ALRMS_CHARGE_OVER_TEMPERATURE)
+    if (ainfo->status & TB_ALRMS_CELL_TEMP_DISCHARGE_PROTECT)
     {
-        printf("    Charge over temperature\n");
+        printf("    Cell temperature discharge protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_CELL_TEMP_CHARGE_PROTECT)
+    {
+        printf("    Cell temperature charge protect\n");
     }
     if (ainfo->status & TB_ALRMS_MODULE_UNDER_VOLTAGE)
     {
-        printf("    Module under voltage\n");
+        printf("    Pack under voltage alarm\n");
     }
-    if (ainfo->status & TB_ALRMS_CHARGE_MOSFET) 
+    if (ainfo->status & TB_ALRMS_OPEN_CURRENT_LIMIT)
     {
-        printf("    Charge MOSFET ON\n");
+        printf("    Open current limit\n");
     }
-    else
+    if (ainfo->status & TB_ALRMS_CHARGE_MOSFET)
     {
-        printf("    Charge MOSFET OFF\n");
+        printf("    Charge MOSFET on\n");
     }
-    if (ainfo->status & TB_ALRMS_DISCHARGE_MOSFET) 
+    if (ainfo->status & TB_ALRMS_DISCHARGE_MOSFET)
     {
-        printf("    Discharge MOSFET ON\n");
+        printf("    Discharge MOSFET on\n");
     }
-    else 
+    if (ainfo->status & TB_ALRMS_SHORT_CIRCUIT_PROTECT)
     {
-        printf("    Discharge MOSFET OFF\n");
+        printf("    Short circuit protect\n");
     }
-    if (ainfo->status & TB_ALRMS_USING_BAT_MODULE_POWER)
+    if (ainfo->status & TB_ALRMS_CELL_UNDER_VOLTAGE_PROTECT)
     {
-        printf("    Using battery module power\n");
+        printf("    Cell under voltage protect\n");
     }
-    if (ainfo->status & TB_ALRMS_BUZZER)
+    if (ainfo->status & TB_ALRMS_PACK_UNDER_VOLTAGE_PROTECT)
     {
-        printf("    Buzzer ON\n");
+        printf("    Pack under voltage protect\n");
     }
-    else
+    if (ainfo->status & TB_ALRMS_REVERSE_PROTECT)
     {
-        printf("    Buzzer OFF\n");
+        printf("    Reverse protect\n");
     }
-    if (ainfo->status & TB_ALRMS_FULLY_CHARGED)
+    if (ainfo->status & TB_ALRMS_SOC_LOW_ALARM)
     {
-        printf("    Fully charged\n");
+        printf("    SOC low alarm\n");
     }
-    if (ainfo->status & TB_ALRMS_HEATER)
+    if (ainfo->status & TB_ALRMS_BUZZER_ON)
     {
-        printf("    Heater ON\n");
+        printf("    Buzzer on\n");
     }
-    if (ainfo->status & TB_ALRMS_DISCHARGE_CURRENT_UNDER_100MA)
+    if (ainfo->status & TB_ALRMS_CHARGER_FAULT)
     {
-        printf("    Discharge current under 100mA\n");
+        printf("    Charger fault\n");
     }
-    if (ainfo->status & TB_ALRMS_CHARGE_CURRENT_UNDER_100MA)
+    if (ainfo->status & TB_ALRMS_2G_MODULE_FAILURE)
     {
-        printf("    Charge current under 100mA\n");
+        printf("    2G module failure\n");
     }
-
-    for (uint8_t i = 0; i < 16; ++i)
+    if (ainfo->status & TB_ALRMS_FULL_STATE)
     {
-        if (ainfo->status & (TB_ALRMS_CELL1_VOLTAGE_ERR << i))
-        { // Starting from TB_ALRMS_CELL1_VOLTAGE_ERR
-            printf("    Cell %d voltage error\n", i + 1);
-        }
+        printf("    Full charge state\n");
+    }
+    if (ainfo->status & TB_ALRMS_CHARGER_CONNECTED)
+    {
+        printf("    Charger connected\n");
+    }
+    if (ainfo->status & TB_ALRMS_HEATER_ON)
+    {
+        printf("    Heating element on\n");
+    }
+    if (ainfo->status & TB_ALRMS_DISCHARGING)
+    {
+        printf("    Currently discharging\n");
+    }
+    if (ainfo->status & TB_ALRMS_CHARGING)
+    {
+        printf("    Currently charging\n");
+    }
+    if (ainfo->status & TB_ALRMS_UNDEFINED_3_0)
+    {
+        printf("    Undefined status 3.0\n");
+    }
+    if (ainfo->status & TB_ALRMS_UNDEFINED_3_1)
+    {
+        printf("    Undefined status 3.1\n");
+    }
+    if (ainfo->status & TB_ALRMS_UNDEFINED_3_2)
+    {
+        printf("    Undefined status 3.2\n");
+    }
+    if (ainfo->status & TB_ALRMS_UNDEFINED_3_3)
+    {
+        printf("    Undefined status 3.3\n");
+    }
+    if (ainfo->status & TB_ALRMS_CELL_VOLTAGE_LOW_FORCE_PROTECT)
+    {
+        printf("    Cell voltage low force protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_DISCONNECTOR_STATE)
+    {
+        printf("    Disconnect state\n");
+    }
+    if (ainfo->status & TB_ALRMS_AEROSOL_TRIGGERED)
+    {
+        printf("    Fire suppression triggered\n");
+    }
+    if (ainfo->status & TB_ALRMS_PRECHARGE_ON)
+    {
+        printf("    Precharge on\n");
+    }
+    if (ainfo->status & TB_ALRMS_PACK_OVER_VOLTAGE_ALARM)
+    {
+        printf("    Pack over voltage alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_MOS_NTC_TEMPERATURE_ALARM)
+    {
+        printf("    MOS NTC temperature alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_LOW_ALARM)
+    {
+        printf("    Environment NTC temperature low alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_HIGH_ALARM)
+    {
+        printf("    Environment NTC temperature high alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_CELL_NTC_TEMPERATURE_LOW_ALARM)
+    {
+        printf("    Cell NTC temperature low alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_CELL_NTC_TEMPERATURE_HIGH_ALARM)
+    {
+        printf("    Cell NTC temperature high alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_DISCHARGE_CURRENT_ALARM)
+    {
+        printf("    Discharge current alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_CHARGE_CURRENT_ALARM)
+    {
+        printf("    Charge current alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_BALANCE_NTC_TEMPERATURE_ALARM)
+    {
+        printf("    Balance NTC temperature alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_BALANCE_NTC_TEMPERATURE_PROTECT)
+    {
+        printf("    Balance NTC temperature protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_DISCHARGE_MOSFET_FAULT)
+    {
+        printf("    Discharge MOSFET fault\n");
+    }
+    if (ainfo->status & TB_ALRMS_CHARGE_MOSFET_FAULT)
+    {
+        printf("    Charge MOSFET fault\n");
+    }
+    if (ainfo->status & TB_ALRMS_CURRENT_SENSOR_FAULT)
+    {
+        printf("    Current sensor fault\n");
+    }
+    if (ainfo->status & TB_ALRMS_AFE_FAULT)
+    {
+        printf("    AFE fault\n");
+    }
+    if (ainfo->status & TB_ALRMS_NTC_FAULT)
+    {
+        printf("    NTC fault\n");
+    }
+    if (ainfo->status & TB_ALRMS_CELL_FAULT)
+    {
+        printf("    Cell fault\n");
+    }
+    if (ainfo->status & TB_ALRMS_DISCHARGE_OVER_CURRENT2_PROTECT)
+    {
+        printf("    Discharge over current 2 protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_SMART_CHARGING)
+    {
+        printf("    Smart charging\n");
+    }
+    if (ainfo->status & TB_ALRMS_PACK_OVER_VOLTAGE_PROTECT)
+    {
+        printf("    Pack over voltage protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_MOS_NTC_TEMPERATURE_PROTECT)
+    {
+        printf("    MOS NTC temperature protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_DISCHARGE_MOSFET_FORCED_CLOSE)
+    {
+        printf("    Discharge MOSFET forced close\n");
+    }
+    if (ainfo->status & TB_ALRMS_CHARGE_MOSFET_FORCED_CLOSE)
+    {
+        printf("    Charge MOSFET forced close\n");
+    }
+    if (ainfo->status & TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_DISCHARGING)
+    {
+        printf("    Environment NTC temperature protect in discharging\n");
+    }
+    if (ainfo->status & TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_CHARGING)
+    {
+        printf("    Environment NTC temperature protect in charging\n");
+    }
+    if (ainfo->status & TB_ALRMS_REQUEST_SLEEP_DTU)
+    {
+        printf("    Request sleep DTU\n");
+    }
+    if (ainfo->status & TB_ALRMS_BATTERY_LOW_TEMPERATURE_PROTECT)
+    {
+        printf("    Battery low temperature protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_BATTERY_HIGH_TEMPERATURE_PROTECT)
+    {
+        printf("    Battery high temperature protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_LARGE_CELL_VOLTAGE_DIFFERENTIAL_ALARM)
+    {
+        printf("    Large cell voltage differential alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_MOSFET_HIGH_TEMPERATURE_ALARM)
+    {
+        printf("    MOSFET high temperature alarm\n");
+    }
+    if (ainfo->status & TB_ALRMS_CELL_ULTRA_HIGH_TEMPERATURE_PROTECT)
+    {
+        printf("    Cell ultra high temperature protect\n");
+    }
+    if (ainfo->status & TB_ALRMS_DISCHARGE_LIMIT_CURRENT_ON)
+    {
+        printf("    Discharge limit current on\n");
+    }
+    if (ainfo->status & TB_ALRMS_SOC_LOW_PROTECTION)
+    {
+        printf("    SOC low protection\n");
     }
 }
 
@@ -205,5 +381,30 @@ void tb_print_date(struct tb_date* date)
             date->year, date->month, date->day,
             date->hour, date->minute, date->second);
 }
+
+void tb_print_historical_data(struct tb_historical_data* hist)
+{
+    printf("  location:  %02X\n", hist->location);
+    printf("  cmd type:  %02X\n", hist->cmd_type);
+    tb_print_date(&hist->date);
+    printf("  sys. mode: %02X\n", hist->system_mode);
+    printf("  alarm_byte_count:  %d\n", hist->alarm_byte_count);
+    printf("  cell_status_event: %02X\n", hist->cell_status_event);
+    printf("  temp. event:       %04X\n", hist->temp_event);
+    printf("  current event:     %02X\n", hist->current_event);
+}
+
+struct tb_historical_data
+{
+    uint8_t location;
+    uint8_t cmd_type;
+    struct tb_date date;
+    uint8_t system_mode;
+    uint8_t alarm_byte_count;
+    uint8_t cell_status_event;
+    uint8_t single_voltage_event;
+    uint16_t temp_event;
+    uint8_t current_event;
+};
 
 #endif // TOPBAND_PRINT_H
