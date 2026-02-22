@@ -250,8 +250,8 @@ struct tb_command tb_cmd_get_historical_data(int bms_id)
     cmd.cid1 = TB_CID1_BAT_DATA;
     cmd.cid2 = TB_CID2_GET_HISTORICAL_DATA;
     cmd.length  = 4;
-    cmd.info[0] = (uint8_t)bms_id;
-    cmd.info[1] = 0;
+    cmd.info[0] = 0;
+    cmd.info[1] = (uint8_t)bms_id;
 
 
     tb_write_lchksum(&cmd);
@@ -268,7 +268,7 @@ enum tb_historical_query_mode
 
 void tb_historical_data_cmd_set_mode(struct tb_command* cmd, enum tb_historical_query_mode mode)
 {
-    cmd->info[1] = mode;
+    cmd->info[0] = mode;
 }
 
 int tb_special_cmd_sleep(int bms_id, uint8_t* out, size_t size)
@@ -589,7 +589,7 @@ enum TB_ALARM_STATUS
     // STATUS 0
     TB_ALRMS_CELL_OVER_VOLTAGE_PROTECT       = 1,
     TB_ALRMS_CELL_UNDER_VOLTAGE              = 1ULL << 1,
-    TB_ALRMS_CHARGE_OVER_CURRENT             = 1ULL << 2,
+    TB_ALRMS_CHARGE_OVER_CURRENT_PROTECT     = 1ULL << 2,
     TB_ALRMS_CELL_OVER_VOLTAGE_ALARM         = 1ULL << 3,
     TB_ALRMS_DISCHARGE_OVER_CURRENT1_PROTECT = 1ULL << 4,
     TB_ALRMS_CELL_TEMP_DISCHARGE_PROTECT     = 1ULL << 5,
@@ -601,7 +601,7 @@ enum TB_ALARM_STATUS
     TB_ALRMS_DISCHARGE_MOSFET                = 1ULL << 10,
     TB_ALRMS_SHORT_CIRCUIT_PROTECT           = 1ULL << 11,
     TB_ALRMS_CELL_UNDER_VOLTAGE_PROTECT      = 1ULL << 12,
-    TB_ALRMS_PACK_UNDER_VOLTAGE_PROTECT      = 1ULL << 13,
+    TB_ALRMS_MODULE_UNDER_VOLTAGE_PROTECT    = 1ULL << 13,
     TB_ALRMS_REVERSE_PROTECT                 = 1ULL << 14,
     TB_ALRMS_SOC_LOW_ALARM                   = 1ULL << 15,
     // STATUS 2
@@ -622,43 +622,69 @@ enum TB_ALARM_STATUS
     TB_ALRMS_DISCONNECTOR_STATE              = 1ULL << 29,
     TB_ALRMS_AEROSOL_TRIGGERED               = 1ULL << 30,
     TB_ALRMS_PRECHARGE_ON                    = 1ULL << 31,
-    // STATUS 4
-    TB_ALRMS_PACK_OVER_VOLTAGE_ALARM         = 1ULL << 32,
-    TB_ALRMS_MOS_NTC_TEMPERATURE_ALARM       = 1ULL << 33,
-    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_LOW_ALARM = 1ULL << 34,
-    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_HIGH_ALARM = 1ULL << 35,
-    TB_ALRMS_CELL_NTC_TEMPERATURE_LOW_ALARM  = 1ULL << 36,
-    TB_ALRMS_CELL_NTC_TEMPERATURE_HIGH_ALARM = 1ULL << 37,
-    TB_ALRMS_DISCHARGE_CURRENT_ALARM         = 1ULL << 38,
-    TB_ALRMS_CHARGE_CURRENT_ALARM            = 1ULL << 39,
+    // STATUS 4 (completely missing in the language file)
+    TB_ALRMS_UNDEFINED_4_0                   = 1ULL << 32,
+    TB_ALRMS_UNDEFINED_4_1                   = 1ULL << 33,
+    TB_ALRMS_UNDEFINED_4_2                   = 1ULL << 34,
+    TB_ALRMS_UNDEFINED_4_3                   = 1ULL << 35,
+    TB_ALRMS_UNDEFINED_4_4                   = 1ULL << 36,
+    TB_ALRMS_UNDEFINED_4_5                   = 1ULL << 37,
+    TB_ALRMS_UNDEFINED_4_6                   = 1ULL << 38,
+    TB_ALRMS_UNDEFINED_4_7                   = 1ULL << 39,
     // STATUS 5
-    TB_ALRMS_BALANCE_NTC_TEMPERATURE_ALARM   = 1ULL << 40,
-    TB_ALRMS_BALANCE_NTC_TEMPERATURE_PROTECT = 1ULL << 41,
-    TB_ALRMS_DISCHARGE_MOSFET_FAULT          = 1ULL << 42,
-    TB_ALRMS_CHARGE_MOSFET_FAULT             = 1ULL << 43,
-    TB_ALRMS_CURRENT_SENSOR_FAULT            = 1ULL << 44,
-    TB_ALRMS_AFE_FAULT                       = 1ULL << 45,
-    TB_ALRMS_NTC_FAULT                       = 1ULL << 46,
-    TB_ALRMS_CELL_FAULT                      = 1ULL << 47,
+    TB_ALRMS_MODULE_OVER_VOLTAGE_ALARM       = 1ULL << 40,
+    TB_ALRMS_MOS_NTC_TEMPERATURE_ALARM       = 1ULL << 41,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_LOW_ALARM  = 1ULL << 42,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_HIGH_ALARM = 1ULL << 43,
+    TB_ALRMS_CELL_NTC_TEMPERATURE_LOW_ALARM  = 1ULL << 44,
+    TB_ALRMS_CELL_NTC_TEMPERATURE_HIGH_ALARM = 1ULL << 45,
+    TB_ALRMS_DISCHARGE_CURRENT_ALARM         = 1ULL << 46,
+    TB_ALRMS_CHARGE_CURRENT_ALARM            = 1ULL << 47,
     // STATUS 6
-    TB_ALRMS_DISCHARGE_OVER_CURRENT2_PROTECT = 1ULL << 48,
-    TB_ALRMS_SMART_CHARGING                  = 1ULL << 49,
-    TB_ALRMS_PACK_OVER_VOLTAGE_PROTECT       = 1ULL << 50,
-    TB_ALRMS_MOS_NTC_TEMPERATURE_PROTECT     = 1ULL << 51,
-    TB_ALRMS_DISCHARGE_MOSFET_FORCED_CLOSE   = 1ULL << 52,
-    TB_ALRMS_CHARGE_MOSFET_FORCED_CLOSE      = 1ULL << 53,
-    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_DISCHARGING = 1ULL << 54,
-    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_CHARGING = 1ULL << 55,
+    TB_ALRMS_BALANCE_NTC_TEMPERATURE_ALARM   = 1ULL << 48,
+    TB_ALRMS_BALANCE_NTC_TEMPERATURE_PROTECT = 1ULL << 49,
+    TB_ALRMS_DISCHARGE_MOSFET_FAULT          = 1ULL << 50,
+    TB_ALRMS_CHARGE_MOSFET_FAULT             = 1ULL << 51,
+    TB_ALRMS_CURRENT_SENSOR_FAULT            = 1ULL << 52,
+    TB_ALRMS_AFE_FAULT                       = 1ULL << 53,
+    TB_ALRMS_NTC_FAULT                       = 1ULL << 54,
+    TB_ALRMS_CELL_FAULT                      = 1ULL << 55,
     // STATUS 7
-    TB_ALRMS_REQUEST_SLEEP_DTU                     = 1ULL << 56,
-    TB_ALRMS_BATTERY_LOW_TEMPERATURE_PROTECT       = 1ULL << 57,
-    TB_ALRMS_BATTERY_HIGH_TEMPERATURE_PROTECT      = 1ULL << 58,
-    TB_ALRMS_LARGE_CELL_VOLTAGE_DIFFERENTIAL_ALARM = 1ULL << 59,
-    TB_ALRMS_MOSFET_HIGH_TEMPERATURE_ALARM         = 1ULL << 60,
-    TB_ALRMS_CELL_ULTRA_HIGH_TEMPERATURE_PROTECT   = 1ULL << 61,
-    TB_ALRMS_DISCHARGE_LIMIT_CURRENT_ON            = 1ULL << 62,
-    TB_ALRMS_SOC_LOW_PROTECTION                    = 1ULL << 63
+    TB_ALRMS_DISCHARGE_OVER_CURRENT2_PROTECT = 1ULL << 56,
+    TB_ALRMS_SMART_CHARGING                  = 1ULL << 57,
+    TB_ALRMS_MODULE_OVER_VOLTAGE_PROTECT     = 1ULL << 58,
+    TB_ALRMS_MOS_NTC_TEMPERATURE_PROTECT     = 1ULL << 59,
+    TB_ALRMS_DISCHARGE_MOSFET_FORCED_CLOSE   = 1ULL << 60,
+    TB_ALRMS_CHARGE_MOSFET_FORCED_CLOSE      = 1ULL << 61,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_DISCHARGING = 1ULL << 62,
+    TB_ALRMS_ENVIRONMENT_NTC_TEMPERATURE_PROTECT_CHARGING    = 1ULL << 63,
 };
+// I have only ever seen up to 8 bytes of status,
+// but these are defined in the language file
+// STATUS 8
+// enum TB_ALARM_STATUS8
+// {
+//     TB_ALRMS_REQUEST_SLEEP_DTU                     = 1ULL << 0,
+//     TB_ALRMS_BATTERY_LOW_TEMPERATURE_PROTECT       = 1ULL << 1,
+//     TB_ALRMS_BATTERY_HIGH_TEMPERATURE_PROTECT      = 1ULL << 2,
+//     TB_ALRMS_LARGE_CELL_VOLTAGE_DIFFERENTIAL_ALARM = 1ULL << 3,
+//     TB_ALRMS_MOSFET_HIGH_TEMPERATURE_ALARM         = 1ULL << 4,
+//     TB_ALRMS_CELL_ULTRA_HIGH_TEMPERATURE_PROTECT   = 1ULL << 5,
+//     TB_ALRMS_DISCHARGE_LIMIT_CURRENT_ON            = 1ULL << 6,
+//     TB_ALRMS_SOC_LOW_PROTECTION                    = 1ULL << 7
+// };
+// STATUS 9
+// enum TB_ALARM_STATUS9
+// {
+//     TB_ALRMS_CELL_LARGE_VOLTAGE_DIFF_PROTECT = 1ULL << 0,
+//     TB_ALRMS_ANTI_THEFT_COMM_ENABLED         = 1ULL << 1,
+//     TB_ALRMS_ANTI_THEFT_GYRO_ENABLED         = 1ULL << 2,
+//     TB_ALRMS_ANTI_THEFT_GYRO_ACTIVE          = 1ULL << 3,
+//     TB_ALRMS_ANTI_THEFT_GYRO_LOCKED          = 1ULL << 4,
+//     TB_ALRMS_SOH_ABNORMAL_ALARM              = 1ULL << 5,
+//     TB_ALRMS_GYRO_FAULT                      = 1ULL << 6,
+//     TB_ALRMS_ABNORMAL_CURRRENT_LIMIT_PROTECT = 1ULL << 7
+// };
 
 struct tb_alarm_info
 {
@@ -768,17 +794,33 @@ int tb_interpret_date(struct tb_command* response, struct tb_date* date)
 }
 
 
+// ASCII command: ~2100464BC0040000FCC6
+// ASCII reply:   ~210046000088 0000 07E70C150A1F04 61 06 000000000000 19 0000 12C0 079E 0BA5 0BA5 0BA5 0BA5 0B55 0B4B 0C80 0C80 0C80 0C80 0C80 0C80 0C81 0C80 0C80 0C80 0C80 0C80 0C7F 0C7F 0C80 0000 E0C5
+//                    start->|   ?        ^        ^    ^     status   ?       ^    ^     ^----^----^---^----^-----^    ^----^----^----^----^----^----^----^----^----^----^----^----^----^----^  ^
+//                                    date        event |                     V(P)  C(P)      temps (1 missing?)                               Cell voltages                                     |
+//                                                     status count                                                                                                               might be cell 16 (this pack has only 15)
+
+
+// ASCII command: ~2100464BC0040100FCC5
+// ASCII reply:   ~210046000088 0001 07E70C150A1F0A 01 06 000000000000 19 0320 12C0 079E 0BA5 0BA5 0BA5 0BA5 0B55 0B4B 0C80 0C7F 0C80 0C80 0C81 0C80 0C81 0C80 0C80 0C80 0C80 0C80 0C7F 0C7F 0C80 0000 E0A2
+//                                                                         ^
+//                                                                        current (8A*100)
 struct tb_historical_data
 {
-    uint8_t location;
-    uint8_t cmd_type;
+    uint8_t adr;
+    uint8_t cmd;
     struct tb_date date;
-    uint8_t system_mode;
-    uint8_t alarm_byte_count;
-    uint8_t cell_status_event;
-    uint8_t single_voltage_event;
-    uint16_t temp_event;
-    uint8_t current_event;
+    uint8_t event_type;
+    uint8_t status_count;
+    uint64_t status;
+    int16_t  current;
+    uint16_t pack_voltage;
+    uint16_t remaining_capacity;
+    uint16_t cell_temps[4];
+    //uint16_t balancer_temp;    // Balancer temp is missing (it's there in the proprietary version of the history command)
+    uint16_t environment_temp;
+    uint16_t mosfet_temp;
+    uint16_t cell_voltages[16];
 };
 
 int tb_interpret_historical_data(struct tb_command* response, struct tb_historical_data* hist)
@@ -799,21 +841,111 @@ int tb_interpret_historical_data(struct tb_command* response, struct tb_historic
 
     memset(hist, 0, sizeof(struct tb_historical_data));
 
-    hist->location = response->info[0];
-    hist->cmd_type = response->info[1];
+    hist->adr  =  response->info[0];
+    hist->cmd  =  response->info[1];
     hist->date.year   = (response->info[2] << 8) | (response->info[3]);
     hist->date.month  =  response->info[4];
     hist->date.day    =  response->info[5];
     hist->date.hour   =  response->info[6];
     hist->date.minute =  response->info[7];
     hist->date.second =  response->info[8];
-    hist->system_mode = response->info[9];
-    hist->alarm_byte_count = response->info[10];
-    hist->cell_status_event = response->info[11];
-    hist->single_voltage_event = response->info[12];
-    hist->temp_event = (response->info[13] << 8) | (response->info[14]);
-    hist->current_event = response->info[15];
-    // TODO: rest
+    hist->event_type  =  response->info[9];
+    hist->status_count = response->info[10];
+    hist->status = 0;
+
+    // These are not the same as the alarm status bits. I was able to decode these:
+    // 004400000000 Cell under voltage alarm + pack under voltage alarm
+    if (response->info[12] & 0b01000000)
+    {
+        hist-> status |= TB_ALRMS_MODULE_UNDER_VOLTAGE;
+    }
+    if (response->info[12] & 0b00000100)
+    {
+        hist-> status |= TB_ALRMS_CELL_UNDER_VOLTAGE;
+    }
+    // 000300000000 Cell over voltage protect + cell over voltage alarm
+    if (response->info[12] & 0b00000001)
+    {
+        hist-> status |= TB_ALRMS_CELL_OVER_VOLTAGE_ALARM;
+    }
+    if (response->info[12] & 0b00000010)
+    {
+        hist-> status |= TB_ALRMS_CELL_OVER_VOLTAGE_PROTECT;
+    }
+    // 004C00100004 Cell under voltage alarm + pack under voltage alarm +
+    //              Cell under voltage protect + soc low alarm +
+    //              cell ntc temperature high alarm
+    if (response->info[12] & 0b00000010)
+    {
+        hist->status |= TB_ALRMS_CELL_UNDER_VOLTAGE_PROTECT;
+    }
+    if (response->info[14] & 0b00010000)
+    {
+        hist->status |= TB_ALRMS_CELL_NTC_TEMPERATURE_HIGH_ALARM;
+    }
+    if (response->info[16] & 0b00000100)
+    {
+        hist->status |= TB_ALRMS_SOC_LOW_ALARM;
+    }
+    // 001100000000 Cell over voltage alarm + Pack over voltage alarm
+    if (response->info[12] & 0b00010000)
+    {
+        hist->status |= TB_ALRMS_MODULE_OVER_VOLTAGE_ALARM;
+    }
+    // 000000000500 Charge current alarm
+    // 000000000200 charge current protect
+    // Not sure what bit 3 is...
+    if (response->info[15] & 0b00000001)
+    {
+        hist->status |= TB_ALRMS_CHARGE_CURRENT_ALARM;
+    }
+    if (response->info[15] & 0b00000010)
+    {
+        hist->status |= TB_ALRMS_CHARGE_OVER_CURRENT_PROTECT;
+    }
+    // 000000000800 discharge over current 1 protect
+    if (response->info[15] & 0b00001000)
+    {
+        hist->status |= TB_ALRMS_DISCHARGE_OVER_CURRENT1_PROTECT;
+    }
+
+
+    hist->current            = ((int16_t)response->info[18] << 8) | ((int16_t)response->info[19]);
+    hist->pack_voltage       = (response->info[20] << 8) | (response->info[21]);
+    hist->remaining_capacity = (response->info[22] << 8) | (response->info[23]);
+    for (uint16_t i = 0; i < 4; i++)
+    {
+        // Somehow here negative temps are not handled the same way as above.
+        // for example -2.0C is 5271 and -17.0 is 5121
+        // The positive temps are ok though
+        hist->cell_temps[i] = (response->info[24+i*2] << 8) | (response->info[25+i*2]);
+        // So I'll just subtract another 2560 if the temp reads over 100C
+        if(hist->cell_temps[i] > 3731)
+        {
+            hist->cell_temps[i] -= 2560;
+        }
+    }
+    uint16_t offset = 32;
+
+    hist->environment_temp = (response->info[offset] << 8) | (response->info[offset+1]);
+    if(hist->environment_temp > 3731)
+    {
+        hist->environment_temp -= 2560;
+    }
+
+    // hist->balancer_temp = (response->info[offset+2] << 8) | (response->info[offset+3]); 
+    hist->mosfet_temp   = (response->info[offset+2] << 8) | (response->info[offset+3]);
+    if(hist->mosfet_temp > 3731)
+    {
+        hist->mosfet_temp -= 2560;
+    }
+
+    for (uint16_t i = 0; i < 16; i++)
+    {
+        hist->cell_voltages[i] = (response->info[offset+4+i*2] << 8) | (response->info[offset+5+i*2]);
+    }
+
+
 
     return 0;
 }

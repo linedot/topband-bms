@@ -184,24 +184,31 @@ int main(int argc, char* argv[]) {
     /**************************************
      *        QUERY HISTORICAL DATA       *
      **************************************/
-    printf("Querying historical data\n");
+    printf("Querying historical data (first 10 events)\n");
     for (uint16_t i = 0; i < bms_count; i++)
     {
-        size_t num_responses = 0;
-        struct tb_command hist_cmd = tb_cmd_get_historical_data(bms_ids[i]);
-        struct tb_command* responses = query_bms(fd, &hist_cmd, &num_responses);
-
-        for (size_t j = 0; j < num_responses; j++)
+        for (uint16_t hist_num = 0; hist_num < 10; hist_num++)
         {
-            struct tb_historical_data hist;
-            if (0 == tb_interpret_historical_data(&responses[j], &hist))
+            size_t num_responses = 0;
+            struct tb_command hist_cmd = tb_cmd_get_historical_data(bms_ids[i]);
+            if(hist_num > 0)
             {
-                printf("First Hist. Event (BMS ID %d):\n", bms_ids[i]);
-                tb_print_historical_data(&hist);
+                tb_historical_data_cmd_set_mode(&hist_cmd, TB_NEXT);
             }
+            struct tb_command* responses = query_bms(fd, &hist_cmd, &num_responses);
+
+            for (size_t j = 0; j < num_responses; j++)
+            {
+                struct tb_historical_data hist;
+                if (0 == tb_interpret_historical_data(&responses[j], &hist))
+                {
+                    printf("Hist. Event nr. %d (BMS ID %d):\n", hist_num, bms_ids[i]);
+                    tb_print_historical_data(&hist);
+                }
+            }
+            if (NULL != responses)
+                free(responses);
         }
-        if (NULL != responses)
-            free(responses);
     }
 
 

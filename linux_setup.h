@@ -97,9 +97,20 @@ struct tb_command* query_bms_with_buffer(int fd, const char* query_buffer,
     if (bytes_sent != query_buffer_size) {
         perror("Failed to send query_cmd");
     }
-    //else {
-    //    printf("Sent %d bytes: %s\n", bytes_sent, query_buffer);
-    //}
+
+    if(query_buffer[0] == '~')
+    {
+        printf("ASCII command: %s\n", query_buffer);
+    }
+    else
+    {
+        printf("HEX command:   ");
+        for(uint32_t i = 0; i < query_buffer_size; i++)
+        {
+            printf("\\x%02X", (unsigned char)query_buffer[i]);
+        }
+        printf("\n");
+    }
 
 
     const size_t max_buf_size = 256*16;
@@ -107,7 +118,7 @@ struct tb_command* query_bms_with_buffer(int fd, const char* query_buffer,
     char buffer[max_buf_size];
     struct timeval timeout;
     timeout.tv_sec = 0;
-    timeout.tv_usec = 500000;
+    timeout.tv_usec = 300000;
 
     int read_something = 1;
 
@@ -132,13 +143,19 @@ struct tb_command* query_bms_with_buffer(int fd, const char* query_buffer,
     if (0 == msg_size)
         return NULL;
 
-    //printf("ASCII reply: %s\n", buffer);
-    //printf("HEX reply:   ");
-    //for(uint32_t i = 0; i < msg_size; i++)
-    //{
-    //    printf("\\x%02X", (unsigned char)buffer[i]);
-    //}
-    //printf("\n");
+    if (buffer[0] == '~')
+    {
+        printf("ASCII reply: %s\n", buffer);
+    }
+    else
+    {
+        printf("HEX reply:   ");
+        for(uint32_t i = 0; i < msg_size; i++)
+        {
+            printf("\\x%02X", (unsigned char)buffer[i]);
+        }
+        printf("\n");
+    }
 
     const char* next = buffer;
     while(next < buffer+msg_size)

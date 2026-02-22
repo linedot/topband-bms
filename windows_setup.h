@@ -75,8 +75,8 @@ void configure_serial_port(serial hSerial, DWORD baudrate) {
 
     // Initial timeouts
     COMMTIMEOUTS timeouts = {0};
-    timeouts.ReadIntervalTimeout = 200; // Timeout for read operations
-    timeouts.ReadTotalTimeoutConstant = 200; // Total timeout for read operations
+    timeouts.ReadIntervalTimeout = 300; // Timeout for read operations
+    timeouts.ReadTotalTimeoutConstant = 300; // Total timeout for read operations
     timeouts.ReadTotalTimeoutMultiplier = 10; // Multiplier for timeout
     timeouts.WriteTotalTimeoutConstant = 2000; // Total timeout for write operations
     timeouts.WriteTotalTimeoutMultiplier = 500; // Multiplier for timeout
@@ -109,10 +109,10 @@ struct tb_command* query_bms_with_buffer(serial handle, const char* query_buffer
 
     GetCommTimeouts(handle, &timeouts);
     timeouts.ReadIntervalTimeout = 10;
-    timeouts.ReadTotalTimeoutConstant = 200;
+    timeouts.ReadTotalTimeoutConstant = 300;
     timeouts.ReadTotalTimeoutMultiplier = 10;
 
-    DWORD manual_timeout_ms = 200;
+    DWORD manual_timeout_ms = 300;
 
     const size_t max_buf_size = 256*16;
     char buffer[max_buf_size];
