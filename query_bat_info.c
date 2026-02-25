@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "topband.h"
@@ -86,6 +87,38 @@ int main(int argc, char* argv[]) {
                 printf("Manufacturer info (BMS ID %d):\n", bms_ids[i]);
                 tb_print_manufacturer_info(&minfo);
             }
+        }
+        if (NULL != responses)
+            free(responses);
+    }
+    /**************************************
+     *               SET DATE             *
+     **************************************/
+    printf("Setting date\n");
+    for (uint16_t i = 0; i < bms_count; i++)
+    {
+        size_t num_responses = 0;
+        struct tb_command date_cmd = tb_cmd_set_date(bms_ids[i]);
+        time_t t = time(NULL);
+        struct tm* local_time = localtime(&t);
+        tb_set_date_cmd_set_date(&date_cmd,
+                local_time->tm_year+1900,
+                local_time->tm_mon+1,
+                local_time->tm_mday,
+                local_time->tm_hour,
+                local_time->tm_min,
+                local_time->tm_sec);
+        printf(" System date: %02d-%02d-%02d %02d:%02d:%02d\n",
+                local_time->tm_year+1900,
+                local_time->tm_mon+1,
+                local_time->tm_mday,
+                local_time->tm_hour,
+                local_time->tm_min,
+                local_time->tm_sec);
+        struct tb_command* responses = query_bms(fd, &date_cmd, &num_responses);
+        for (size_t j = 0; j < num_responses; j++)
+        {
+            printf("BMS ID %d return code: %02X\n",bms_ids[i], responses[j].cid2);
         }
         if (NULL != responses)
             free(responses);

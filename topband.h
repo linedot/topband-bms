@@ -211,6 +211,41 @@ struct tb_command tb_cmd_get_date(int bms_id)
 
     return cmd;
 }
+// Set date 2026-02-25 13:24:09
+// 276085 write(35, "~2103464E200E 07EA 02 19 0D 18 09 FA81\r", 32) = 32
+// Receive reply
+// 276085 read(35, "~210346000000FDB", 16) = 16
+// Get date
+// 276085 write(35, "~2103464D0000FD98\r", 18) = 18
+// Receive reply 2026-02-25 13:24:11
+// 276085 read(35, "~21034600200E 07EA 02 19 0D 18 0B FA91\r", 32) = 32
+
+struct tb_command tb_cmd_set_date(int bms_id)
+{
+    struct tb_command cmd;
+    tb_set_cmd_common(&cmd);
+    cmd.adr = (uint8_t)bms_id;
+    cmd.cid1 = TB_CID1_BAT_DATA;
+    cmd.cid2 = TB_CID2_SET_DATE;
+    cmd.length = 14;
+
+    tb_write_lchksum(&cmd);
+
+    return cmd;
+}
+
+void tb_set_date_cmd_set_date(struct tb_command* cmd,
+        uint16_t year, uint8_t month, uint8_t day,
+        uint8_t hour, uint8_t minute, uint8_t second)
+{
+    cmd->info[0] = (year >> 8);
+    cmd->info[1] = (year & 0xFF);
+    cmd->info[2] = month;
+    cmd->info[3] = day;
+    cmd->info[4] = hour;
+    cmd->info[5] = minute;
+    cmd->info[6] = second;
+}
 
 struct tb_command tb_cmd_get_system_parameter(int bms_id)
 {
